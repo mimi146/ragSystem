@@ -14,6 +14,7 @@ chroma_db/
 uploaded_docs/
 *.docx
 *.pdf
+Scaler*Project*Report*Template*
 !README.md
 !AGENTS.md
 !chat-client.md
