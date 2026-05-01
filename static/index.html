@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather RAG Chat</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <button id="new-chat-btn" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> New Chat
+                </button>
+            </div>
+            
+            <div class="history-section">
+                <h3>History</h3>
+                <ul id="chat-history-list">
+                    <!-- History items will be injected here -->
+                </ul>
+            </div>
+
+            <div class="upload-section">
+                <h3>Knowledge Base</h3>
+                <div class="upload-controls">
+                    <label for="file-upload" class="btn btn-secondary">
+                        <i class="fas fa-file-upload"></i> Upload Doc
+                    </label>
+                    <input type="file" id="file-upload" accept=".pdf,.doc,.docx" hidden>
+                    <div id="upload-status" class="status-message"></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="chat-area">
+            <header class="chat-header">
+                <h2 id="current-chat-title">New Conversation</h2>
+                <div class="model-controls">
+                    <label for="model-select">Model</label>
+                    <select id="model-select">
+                        <option value="gemma4:e2b">gemma4:e2b</option>
+                        <option value="deepseek-r1:1.5b">deepseek-r1:1.5b</option>
+                    </select>
+                </div>
+            </header>
+
+            <div id="chat-messages" class="chat-messages">
+                <!-- Messages will be injected here -->
+                <div class="welcome-message">
+                    <i class="fas fa-cloud-sun fa-3x"></i>
+                    <h2>Weather RAG Assistant</h2>
+                    <p>Upload documents to the knowledge base and ask me anything about them.</p>
+                </div>
+            </div>
+
+            <footer class="chat-input-container">
+                <form id="chat-form">
+                    <input type="text" id="user-input" placeholder="Type your message here..." autocomplete="off">
+                    <button type="submit" id="send-btn" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </footer>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

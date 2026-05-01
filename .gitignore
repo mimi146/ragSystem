@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Local Data & Templates
+chroma_db/
+uploaded_docs/
+*.docx
+*.pdf
+!README.md
+!AGENTS.md
+!chat-client.md
+!CLAUDE.md
