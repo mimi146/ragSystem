@@ -259,9 +259,16 @@ def stream_answer_query(
 
     def token_stream() -> Generator[str, None, None]:
         answer_parts: list[str] = []
-        for token in generate_answer_stream(query, results, history=user_history, model=model):
-            answer_parts.append(token)
-            yield token
+        try:
+            for token in generate_answer_stream(query, results, history=user_history, model=model):
+                answer_parts.append(token)
+                yield token
+        except Exception as exc:
+            # Prevent ASGI stream crashes on provider errors and return a readable
+            # message to the client while still logging the traceback server-side.
+            logger.exception("Streaming generation failed: %s", exc)
+            yield "\n[Error] Failed to generate response from configured LLM provider."
+            return
 
         full_answer = "".join(answer_parts)
         # Persist only the completed answer once streaming finishes.

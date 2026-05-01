@@ -195,9 +195,18 @@ document.addEventListener('DOMContentLoaded', () => {
         userInput.value = '';
         appendMessage('user', query);
 
-        // Create AI message placeholder
-        const aiBubble = appendMessage('ai', '...', false);
+        // Create AI message placeholder and start typing indicator
+        const aiBubble = appendMessage('ai', '', false);
         let rawResponse = '';
+        let typingTimer = null;
+        let typingDots = 0;
+        // Start a lightweight typing animation while waiting for the stream
+        typingTimer = setInterval(() => {
+            typingDots = (typingDots + 1) % 4;
+            const dots = '.'.repeat(typingDots);
+            aiBubble.innerHTML = `<p>Waiting for response${dots}</p>`;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }, 350);
 
         try {
             const response = await fetch('/weather/ask-stream', {
@@ -234,6 +243,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            // Stop the typing indicator once the stream starts
+            if (typingTimer) {
+                clearInterval(typingTimer);
+                typingTimer = null;
+            }
             aiBubble.innerHTML = '';
 
             while (true) {
@@ -255,6 +269,10 @@ document.addEventListener('DOMContentLoaded', () => {
             saveChats();
 
         } catch (err) {
+            if (typingTimer) {
+                clearInterval(typingTimer);
+                typingTimer = null;
+            }
             aiBubble.textContent = 'Error: ' + err.message;
             aiBubble.style.color = 'red';
         }

@@ -6,6 +6,7 @@ FastAPI-based Retrieval-Augmented Generation (RAG) service for document-grounded
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-000000?style=flat)](https://www.trychroma.com/)
 [![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM-blue)](https://ollama.ai/)
 [![Anthropic](https://img.shields.io/badge/Anthropic-Claude-8e44ad)](https://www.anthropic.com/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-111111)](https://openai.com/)
 
 ## 🚀 Overview
 
@@ -13,7 +14,7 @@ This service transforms your documents into an interactive knowledge base. It al
 - Upload PDF/DOCX documents
 - Chunk and embed them into ChromaDB
 - Retrieve top-k relevant chunks for a query
-- Generate grounded answers with Ollama or Anthropic
+- Generate grounded answers with Ollama, Anthropic, or OpenAI GPT-4o
 - Stream responses token-by-token
 - Persist short conversation history per `user_id`
 - Choose model from chat UI (`gemma4:e2b` or `deepseek-r1:1.5b`)
@@ -32,7 +33,7 @@ For a detailed breakdown of the system modules, see [AGENTS.md](./AGENTS.md).
 - **`routes/controller.py`**: API layer handling request/response and delegating logic to the workflow.
 - **`rag_workflow.py`**: Explicit orchestration stages (Ingestion, Retriever, Reader).
 - **`vector_store.py`**: Embedding helpers and ChromaDB operations (storage, search, history).
-- **`llm.py`**: Provider abstraction for Ollama and Anthropic generation.
+- **`llm.py`**: Provider abstraction for Ollama, Anthropic, and OpenAI generation.
 
 ### High-Level Flow
 
@@ -137,10 +138,19 @@ Conversation turns are persisted in ChromaDB collection `user-conversations`.
 ## ⚙️ Configuration
 
 Environment variables used by `llm.py`:
-- `LLM_PROVIDER`: `ollama` (default) or `anthropic`
+- `LLM_PROVIDER`: `ollama` by default, or `anthropic` / `openai` to override
 - `OLLAMA_MODEL`: Default: `gemma4:e2b`
 - `ANTHROPIC_MODEL`: Default: `claude-sonnet-4-20250514`
 - `ANTHROPIC_API_KEY`: Required for Anthropic provider
+- `OPENAI_MODEL`: Default: `gpt-4o`
+- `OPENAI_API_KEY`: Required for OpenAI provider
+- `OPENAI_BASE_URL`: Optional custom OpenAI-compatible API endpoint
+- `AZURE_OPENAI_API_KEY`: Required for Azure OpenAI
+- `AZURE_OPENAI_ENDPOINT`: Azure endpoint base URL, for example `https://<resource>.openai.azure.com`
+- `AZURE_OPENAI_API_VERSION`: Azure API version, default `2024-10-21`
+- `AZURE_OPENAI_MODEL`: Azure deployment name or model alias
+
+If `OPENAI_API_KEY` or `AZURE_OPENAI_API_KEY` is set and `LLM_PROVIDER` is not explicitly set, the app uses OpenAI by default.
 
 ---
 

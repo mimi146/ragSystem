@@ -38,12 +38,12 @@ This is a **RAG (Retrieval-Augmented Generation) system** for weather-related do
 | `main.py` | FastAPI app entry point, mounts static files (`/chat/`) and routers |
 | `routes/controller.py` | API endpoints, text extraction, chunking, request validation |
 | `vector_store.py` | ChromaDB client, embedding model (`all-MiniLM-L6-v2`), CRUD operations |
-| `llm.py` | LLM abstraction layer supporting Ollama (default: `gemma4:e2b`) and Anthropic |
+| `llm.py` | LLM abstraction layer supporting Ollama (default: `gemma4:e2b`), Anthropic, and OpenAI |
 | `static/` | Vanilla JS chat interface with streaming responses |
 
 ### Key Design Decisions
 
-1. **Local-first LLM**: Defaults to Ollama with `gemma4:e2b` for private, cost-free inference. Falls back to Anthropic if `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` is set.
+1. **Local-first LLM**: Defaults to Ollama with `gemma4:e2b` for private, cost-free inference. Falls back to Anthropic if `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` is set, or OpenAI if `LLM_PROVIDER=openai` and `OPENAI_API_KEY` is set.
 
 2. **Per-upload isolation**: Each document upload gets a unique `upload_id` to prevent same-filename collisions. Chunk IDs are derived from `upload_id + chunk_index`, not filename.
 
@@ -89,10 +89,19 @@ Environment variables (all optional, defaults in `llm.py`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LLM_PROVIDER` | `ollama` | `ollama` or `anthropic` |
+| `LLM_PROVIDER` | `ollama` | `ollama`, `anthropic`, or `openai` |
 | `OLLAMA_MODEL` | `gemma4:e2b` | Local model name |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-20250514` | Cloud model name |
 | `ANTHROPIC_API_KEY` | (empty) | Required for Anthropic provider |
+| `OPENAI_MODEL` | `gpt-4o` | OpenAI model name |
+| `OPENAI_API_KEY` | (empty) | Required for OpenAI provider |
+| `OPENAI_BASE_URL` | (empty) | Optional custom OpenAI-compatible API endpoint |
+| `AZURE_OPENAI_API_KEY` | (empty) | Required for Azure OpenAI |
+| `AZURE_OPENAI_ENDPOINT` | (empty) | Azure endpoint base URL |
+| `AZURE_OPENAI_API_VERSION` | `2024-10-21` | Azure API version |
+| `AZURE_OPENAI_MODEL` | `gpt-4o` | Azure deployment name or model alias |
+
+If `OPENAI_API_KEY` or `AZURE_OPENAI_API_KEY` is set and `LLM_PROVIDER` is not explicitly provided, OpenAI becomes the default provider.
 
 ## Important Behaviors
 

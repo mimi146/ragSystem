@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, UploadFile, HTTPException, status
 from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from vector_store import (
     get_collection_stats,
@@ -67,6 +67,25 @@ class QueryRequest(BaseModel):
     user_id: str = "anonymous"
     # Optional per-request model override (for example: deepseek-r1:1.5b).
     model: str | None = None
+
+    @field_validator("model", mode="before")
+    @classmethod
+    def normalize_model_override(cls, value):
+        """Treat empty/placeholder model values as no override.
+
+        Swagger UI often pre-fills optional strings with "string". Passing that
+        through to Azure/OpenAI causes deployment/model lookup failures.
+        """
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = value.strip()
+            # Swagger UI often sends "string" for optional fields; ignore it so
+            # provider defaults are used instead of a non-existent deployment.
+            if not normalized or normalized.lower() == "string":
+                return None
+            return normalized
+        return value
 
 class QueryResponse(BaseModel):
     """
@@ -248,6 +267,7 @@ async def ask_question_stream(payload: QueryRequest):
         max_memory_turns=MAX_MEMORY_TURNS,
         model=payload.model,
     )
+  
 
     if stream is None:
         return {"query": payload.query, "answer": "No relevant context found.", "sources": []}

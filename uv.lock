@@ -1428,6 +1428,25 @@ wheels = [
 ]
 
 [[package]]
+name = "openai"
+version = "2.33.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "tqdm" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f0/ee/d056c82f63c05f06baac0cffb4a90952d8274f90c49dfe244f20497b9bbd/openai-2.33.0.tar.gz", hash = "sha256:f850c435e2a4685bba3295bd54912dd26315d9c1b7733068186134d6e0599f9a", size = 693254 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7d/32/37734d769bc8b42e4938785313cc05aade6cb0fa72479d3220a0d61a4e78/openai-2.33.0-py3-none-any.whl", hash = "sha256:03ac37d70e8c9e3a8124214e3afa785e2cbc12e627fbd98177a086ef2fd87ad5", size = 1162695 },
+]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.41.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2858,6 +2877,7 @@ dependencies = [
     { name = "chromadb" },
     { name = "fastapi" },
     { name = "ollama" },
+    { name = "openai" },
     { name = "pypdf" },
     { name = "python-docx" },
     { name = "python-multipart" },
@@ -2871,6 +2891,7 @@ requires-dist = [
     { name = "chromadb", specifier = ">=0.5.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "ollama", specifier = ">=0.4.0" },
+    { name = "openai", specifier = ">=1.40.0" },
     { name = "pypdf", specifier = ">=5.1.0" },
     { name = "python-docx", specifier = ">=1.1.2" },
     { name = "python-multipart", specifier = ">=0.0.9" },

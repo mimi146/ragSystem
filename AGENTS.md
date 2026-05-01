@@ -21,7 +21,7 @@ Manages the "memory" of the system using semantic embeddings.
 ## 3. Knowledge Synthesizer (`llm.py`)
 The reasoning engine that generates natural language responses.
 - **Responsibilities:**
-    - Provides a unified interface for multiple LLM providers (**Ollama** and **Anthropic**).
+    - Provides a unified interface for multiple LLM providers (**Ollama**, **Anthropic**, and **OpenAI**).
     - Defaults to local inference using **Gemma** (via Ollama).
     - Formats system and user prompts to ensure the LLM stays within the provided context.
     - Supports both full-text generation and streaming responses.

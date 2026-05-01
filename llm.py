@@ -5,9 +5,10 @@ This module provides the "Generation" part of RAG. After retrieving relevant
 document chunks, we pass them to an LLM along with the user's query to generate
 a natural language answer.
 
-Two providers are supported:
+Three providers are supported:
 1. Ollama (local, free, private) - Default
 2. Anthropic Claude (cloud, highest quality)
+3. OpenAI GPT-4o (cloud, fast general-purpose model)
 
 The module uses a simple provider pattern - switch between them via config.
 """
@@ -15,6 +16,7 @@ The module uses a simple provider pattern - switch between them via config.
 import logging
 import os
 import importlib
+from urllib.parse import urlsplit, urlunsplit
 from typing import Generator
 
 logger = logging.getLogger(__name__)
@@ -23,16 +25,26 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION - Choose your LLM provider
 # =============================================================================
 
-# Set to "ollama" for local inference or "anthropic" for cloud API
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()
-
 # Model names for each provider
 # Default to the locally hosted Gemma model requested for this project.
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
-# API key for Anthropic (only needed if using Anthropic)
+# API keys for cloud providers (only needed if using them)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21")
+AZURE_OPENAI_MODEL = os.getenv("AZURE_OPENAI_MODEL", OPENAI_MODEL)
+
+# Default to OpenAI/Azure OpenAI when a cloud key is present, otherwise stay local unless overridden.
+DEFAULT_LLM_PROVIDER = "openai" if (OPENAI_API_KEY or AZURE_OPENAI_API_KEY) else "ollama"
+
+# Set to "ollama" for local inference, or "anthropic" / "openai" for cloud API.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", DEFAULT_LLM_PROVIDER).lower()
 
 # =============================================================================
 # PROVIDER INITIALIZATION
@@ -43,14 +55,19 @@ def get_llm_client():
     Get the appropriate LLM client based on configured provider.
 
     Returns:
-        tuple: (client, provider_name) - client is either an Ollama instance
-               or Anthropic instance, depending on configuration.
+         tuple: (client, provider_name) - client is either an Ollama instance,
+                or Anthropic/OpenAI instance, depending on configuration.
     """
     if LLM_PROVIDER == "anthropic":
         if not ANTHROPIC_API_KEY:
             logger.warning("ANTHROPIC_API_KEY not set, falling back to Ollama")
             return _get_ollama_client(), "ollama"
         return _get_anthropic_client(), "anthropic"
+    if LLM_PROVIDER == "openai":
+        if not (OPENAI_API_KEY or (AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT)):
+            logger.warning("OpenAI/Azure OpenAI credentials not set, falling back to Ollama")
+            return _get_ollama_client(), "ollama"
+        return _get_openai_client(), "openai"
     else:
         return _get_ollama_client(), "ollama"
 
@@ -76,6 +93,44 @@ def _get_anthropic_client():
         return client
     except ImportError:
         logger.error("anthropic package not installed. Run: pip install anthropic")
+        raise
+
+
+def _get_openai_client():
+    """Initialize OpenAI client (cloud API)."""
+    try:
+        openai = importlib.import_module("openai")
+        if AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT:
+            OpenAI = getattr(openai, "OpenAI")
+            azure_base_url = _normalize_azure_openai_base_url(AZURE_OPENAI_ENDPOINT)
+            # For Azure's custom endpoint, use api-key header only (no api_key param)
+            client = OpenAI(
+                api_key="",  # Required but empty - we use api-key header instead
+                base_url=azure_base_url,
+                default_headers={"api-key": AZURE_OPENAI_API_KEY},
+            )
+            logger.info(
+                "Azure OpenAI-compatible client initialized "
+                f"(model: {AZURE_OPENAI_MODEL}, base_url: {azure_base_url})"
+            )
+            return client
+
+        OpenAI = getattr(openai, "OpenAI")
+        client_kwargs = {"api_key": OPENAI_API_KEY}
+        if OPENAI_BASE_URL:
+            client_kwargs["base_url"] = OPENAI_BASE_URL
+        client = OpenAI(**client_kwargs)
+        logger.info(
+            f"OpenAI client initialized (model: {OPENAI_MODEL})"
+            + (
+                f", base_url: {OPENAI_BASE_URL}"
+                if OPENAI_BASE_URL
+                else ""
+            )
+        )
+        return client
+    except ImportError:
+        logger.error("openai package not installed. Run: pip install openai")
         raise
 
 
@@ -139,6 +194,8 @@ def generate_answer(
 
     if provider == "ollama":
         return _generate_ollama(client, query, context, history, model=model)
+    elif provider == "openai":
+        return _generate_openai(client, query, context, history, model=model)
     else:
         return _generate_anthropic(client, query, context, history, model=model)
 
@@ -169,6 +226,8 @@ def generate_answer_stream(
 
     if provider == "ollama":
         yield from _stream_ollama(client, query, context, history, model=model)
+    elif provider == "openai":
+        yield from _stream_openai(client, query, context, history, model=model)
     else:
         yield from _stream_anthropic(client, query, context, history, model=model)
 
@@ -285,6 +344,89 @@ def _stream_ollama(
 # ANTHROPIC IMPLEMENTATION
 # =============================================================================
 
+def _generate_openai(
+    client,
+    query: str,
+    context: str,
+    history: list[dict] | None = None,
+    model: str | None = None,
+) -> str:
+    """Generate answer using OpenAI or Azure OpenAI via chat.completions API."""
+    user_prompt = build_user_prompt(query=query, context=context, history=history)
+    selected_model = model or (_resolve_openai_model())
+
+    logger.debug(f"Sending request to OpenAI (model: {selected_model})")
+
+    response = client.chat.completions.create(
+        model=selected_model,
+        messages=[
+            {"role": "system", "content": RAG_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt}
+        ],
+        max_tokens=1024,
+    )
+
+    answer = response.choices[0].message.content
+    logger.info(f"Generated answer ({len(answer)} chars)")
+
+    return answer
+
+
+def _stream_openai(
+    client,
+    query: str,
+    context: str,
+    history: list[dict] | None = None,
+    model: str | None = None,
+) -> Generator[str, None, None]:
+    """Stream answer from OpenAI or Azure OpenAI via chat.completions API."""
+    user_prompt = build_user_prompt(query=query, context=context, history=history)
+    selected_model = model or (_resolve_openai_model())
+
+    response = client.chat.completions.create(
+        model=selected_model,
+        messages=[
+            {"role": "system", "content": RAG_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt}
+        ],
+        max_tokens=1024,
+        stream=True
+    )
+    
+    for chunk in response:
+        try:
+            if chunk.choices and len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield delta.content
+        except (AttributeError, IndexError, TypeError) as e:
+            logger.error(f"Error parsing chunk: {e}")
+            pass
+    logger.info("OpenAI stream finished")
+
+
+def _resolve_openai_model() -> str:
+    """Return the correct model/deployment name for the configured OpenAI provider."""
+    if AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT:
+        return AZURE_OPENAI_MODEL
+    return OPENAI_MODEL
+
+
+def _normalize_azure_openai_base_url(endpoint: str) -> str:
+    """Normalize an Azure OpenAI endpoint to the OpenAI-compatible base URL.
+
+    Accepts a raw host or any pasted Azure URL and reduces it to the origin
+    before appending /openai/v1. This avoids leaking extra path segments such
+    as /responses into the SDK request path.
+    """
+    parsed = urlsplit(endpoint)
+    if parsed.scheme and parsed.netloc:
+        origin = urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
+    else:
+        origin = endpoint.split("/")[0]
+
+    return origin.rstrip("/") + "/openai/v1"
+
 def _generate_anthropic(
     client,
     query: str,
@@ -365,6 +507,15 @@ def check_llm_available() -> dict:
                 model=ANTHROPIC_MODEL,
                 max_tokens=1,
                 messages=[{"role": "user", "content": "Hi"}]
+            )
+            result["available"] = True
+        elif LLM_PROVIDER == "openai" and (OPENAI_API_KEY or (AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT)):
+            result["model"] = _resolve_openai_model()
+            client, _ = get_llm_client()
+            client.chat.completions.create(
+                model=_resolve_openai_model(),
+                messages=[{"role": "user", "content": "Hi"}],
+                max_tokens=1,
             )
             result["available"] = True
         else:
