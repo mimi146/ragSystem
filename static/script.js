@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentChatTitle = document.getElementById('current-chat-title');
     const modelSelect = document.getElementById('model-select');
 
-    const DEFAULT_MODEL = 'gemma4:e2b';
+    const DEFAULT_MODEL = 'gpt-4o';
     const savedModel = localStorage.getItem('weather_rag_model');
     if (savedModel && modelSelect.querySelector(`option[value="${savedModel}"]`)) {
         modelSelect.value = savedModel;
